@@ -1,0 +1,8 @@
+{
+  "models": {
+    "manor": "models/environment/manor/manor.glb"
+  },
+  "textures": {},
+  "audio": {},
+  "json": {}
+}
