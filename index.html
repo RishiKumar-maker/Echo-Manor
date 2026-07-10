@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prop Hunt P2P</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+    <div id="ui" style="position:absolute; z-index:10; color:white;">
+        <input id="peerId" placeholder="Enter Friend's ID">
+        <button onclick="connectToFriend()">Join Game</button>
+        <p>Your ID: <span id="myId">Loading...</span></p>
+    </div>
+
+<script>
+    // 1. SETUP NETWORKING
+    const peer = new Peer(); 
+    let conn;
+    
+    peer.on('open', (id) => document.getElementById('myId').innerText = id);
+
+    function connectToFriend() {
+        const friendId = document.getElementById('peerId').value;
+        conn = peer.connect(friendId);
+        setupConnection();
+    }
+
+    peer.on('connection', (c) => { conn = c; setupConnection(); });
+
+    function setupConnection() {
+        conn.on('data', (data) => {
+            // This is where you update the position of the other player
+            // remotePlayer.position.set(data.x, data.y, data.z);
+            console.log("Received data:", data);
+        });
+    }
+
+    // 2. ENGINE SETUP (Three.js)
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // 3. LOAD YOUR 3D MODELS (The Props)
+    const loader = new THREE.GLTFLoader();
+    let playerModel;
+
+    // Load your custom GLB/GLTF model
+    loader.load('assets/my_prop_model.glb', (gltf) => {
+        playerModel = gltf.scene;
+        scene.add(playerModel);
+    });
+
+    // 4. GAME LOOP
+    function animate() {
+        requestAnimationFrame(animate);
+        
+        // Broadcast position to friend
+        if (conn && conn.open) {
+            conn.send({ x: camera.position.x, y: camera.position.y });
+        }
+        
+        renderer.render(scene, camera);
+    }
+    animate();
+</script>
+</body>
+</html>
