@@ -29,7 +29,7 @@ const MANOR_MODEL_ID = 'manor';
 const GROUND_TEXTURE_ID = 'groundDiffuse';
 
 /** Target height (world units) the loaded manor model gets scaled to. */
-const MANOR_TARGET_HEIGHT = 40;
+const MANOR_TARGET_HEIGHT = 30;
 
 /**
  * BootScene owns only the first visible world: ground, fog,
@@ -203,13 +203,18 @@ export class BootScene extends BaseScene {
     if (model) {
       this.manor = model;
       this._manorIsPlaceholder = false;
-      this._autoScaleToTarget(this.manor, MANOR_TARGET_HEIGHT);
     } else {
       this.manor = this._createPlaceholderManor();
       this._manorIsPlaceholder = true;
     }
 
     this.manor.position.set(MANOR_POSITION.x, MANOR_POSITION.y, MANOR_POSITION.z);
+
+    if (!this._manorIsPlaceholder) {
+      this._autoScaleToTarget(this.manor, MANOR_TARGET_HEIGHT);
+      this._groundModel(this.manor, MANOR_POSITION.y);
+    }
+
     this._applyShadows(this.manor);
 
     this.scene.add(this.manor);
@@ -301,6 +306,22 @@ export class BootScene extends BaseScene {
 
     const scale = targetHeight / size.y;
     object3D.scale.setScalar(scale);
+  }
+
+  /**
+   * Shifts an object vertically so the base of its bounding box sits
+   * exactly at ground level, regardless of where the source model's
+   * own pivot/origin was authored. Without this, a model whose
+   * pivot isn't at its base can end up partially buried in or
+   * floating above the ground after scaling.
+   * @param {THREE.Object3D} object3D
+   * @param {number} groundY
+   * @private
+   */
+  _groundModel(object3D, groundY) {
+    const box = new THREE.Box3().setFromObject(object3D);
+    const offset = groundY - box.min.y;
+    object3D.position.y += offset;
   }
 
   /**
