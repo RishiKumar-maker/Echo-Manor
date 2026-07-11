@@ -51,8 +51,8 @@ const MANOR_POSITION = { x: 0, y: 0, z: -20 };
  * shifts the foreground without de-centering the subject.
  */
 const CAMERA_FOV = 65;
-const CAMERA_VIEW_POSITION = { x: 6, y: 26, z: 36.5 };
-const CAMERA_LOOK_AT_HEIGHT = 4;
+const CAMERA_VIEW_POSITION = { x: 2, y: 12, z: 50 };
+const CAMERA_LOOK_AT_HEIGHT = 20;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
