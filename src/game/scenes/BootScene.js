@@ -203,13 +203,18 @@ export class BootScene extends BaseScene {
     if (model) {
       this.manor = model;
       this._manorIsPlaceholder = false;
-      this._autoScaleToTarget(this.manor, MANOR_TARGET_HEIGHT);
     } else {
       this.manor = this._createPlaceholderManor();
       this._manorIsPlaceholder = true;
     }
 
     this.manor.position.set(MANOR_POSITION.x, MANOR_POSITION.y, MANOR_POSITION.z);
+
+    if (!this._manorIsPlaceholder) {
+      this._autoScaleToTarget(this.manor, MANOR_TARGET_HEIGHT);
+      this._groundModel(this.manor, MANOR_POSITION.y);
+    }
+
     this._applyShadows(this.manor);
 
     this.scene.add(this.manor);
