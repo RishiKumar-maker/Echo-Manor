@@ -31,17 +31,27 @@ const AMBIENT_INTENSITY = 0.5;
 const MANOR_POSITION = { x: 0, y: 0, z: -20 };
 
 /**
- * Static camera framing, tuned so the manor reads as large and
- * imposing rather than distant: a narrower-than-default FOV
- * compresses perspective (a telephoto-style look, not a wide-angle
- * one) so the building fills more of the frame with less foreground
- * ground/terrain visible in front of it. The look-at target sits
- * partway up the building's height rather than at its base, tilting
- * the camera upward toward its mass.
+ * Static camera framing, recomposed from scratch to fix the camera
+ * sitting low in the model's own foreground terrain/rocks:
+ * - Y is raised well above typical terrain/rock height, so the
+ *   sightline clears the foreground instead of looking through it.
+ * - Z is pulled meaningfully closer to the manor than before.
+ * - The look-at target sits low (near the entrance), so from the
+ *   raised position the camera pitches slightly downward onto the
+ *   entrance — a heroic, elevated establishing angle rather than a
+ *   low, obstructed one.
+ * - FOV is a bit wider than a telephoto crop, which matters at this
+ *   closer distance: for a ~40-unit-tall subject, a tight FOV this
+ *   close would overfill the frame past the 60% ceiling. The wider
+ *   angle keeps the manor comfortably framed and gives surrounding
+ *   trees room to sit at the frame edges instead of being pushed
+ *   out entirely.
+ * These are a strong starting point, not a guarantee of an exact
+ * percentage — fine-tune against the real model/terrain by eye.
  */
-const CAMERA_FOV = 50;
-const CAMERA_VIEW_POSITION = { x: 0, y: 10, z: 34 };
-const CAMERA_LOOK_AT_HEIGHT = 16;
+const CAMERA_FOV = 58;
+const CAMERA_VIEW_POSITION = { x: 0, y: 20, z: 20 };
+const CAMERA_LOOK_AT_HEIGHT = 9;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
