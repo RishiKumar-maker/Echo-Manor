@@ -28,7 +28,7 @@ const AMBIENT_COLOR = 0x1a2740;
 const AMBIENT_INTENSITY = 0.5;
 
 /** World position for the manor (loaded model or placeholder). */
-const MANOR_POSITION = { x: 0, y: 0, z: -15 };
+const MANOR_POSITION = { x: 0, y: 0, z: -20 };
 
 /**
  * Static camera framing, calculated (not guessed) from the target
@@ -50,9 +50,9 @@ const MANOR_POSITION = { x: 0, y: 0, z: -15 };
  * the look-at X target stays at the manor's own X (0), so this
  * shifts the foreground without de-centering the subject.
  */
-const CAMERA_FOV = 68;
-const CAMERA_VIEW_POSITION = { x: -15, y: 12, z: 4 };
-const CAMERA_LOOK_AT_HEIGHT = 12;
+const CAMERA_FOV = 65;
+const CAMERA_VIEW_POSITION = { x: 6, y: 26, z: 36.5 };
+const CAMERA_LOOK_AT_HEIGHT = 4;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
@@ -259,6 +259,11 @@ export class BootScene extends BaseScene {
     this._applyShadows(this.manor);
 
     this.scene.add(this.manor);
+
+    // TEMPORARY DEBUG — remove after collision-design inspection is done.
+    if (!this._manorIsPlaceholder) {
+      this._logManorInspectionReport(this.manor);
+    }
   }
 
   /**
@@ -369,6 +374,123 @@ export class BootScene extends BaseScene {
     const box = new THREE.Box3().setFromObject(object3D);
     const offset = groundY - box.min.y;
     object3D.position.y += offset;
+  }
+
+  /**
+   * TEMPORARY DEBUG ONLY. Logs a structural report of the loaded
+   * manor model to the console — mesh count, hierarchy, names,
+   * bounds, rough ground/tree/decoration classification by name
+   * heuristics, and triangle counts — to inform collision-system
+   * design. Not part of the game itself; remove this method and its
+   * call site once the report has been reviewed.
+   * @param {THREE.Object3D} model
+   * @private
+   */
+  _logManorInspectionReport(model) {
+    model.updateMatrixWorld(true);
+
+    const meshes = [];
+    model.traverse((child) => {
+      if (child.isMesh) meshes.push(child);
+    });
+
+    const box = new THREE.Box3().setFromObject(model);
+    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new THREE.Vector3());
+
+    const GROUND_KEYWORDS = ['ground', 'floor', 'terrain', 'land', 'grass', 'dirt', 'path', 'road'];
+    const TREE_KEYWORDS = ['tree', 'pine', 'oak', 'trunk', 'branch', 'foliage', 'leaves', 'leaf'];
+    const BUSH_KEYWORDS = ['bush', 'shrub', 'hedge', 'plant'];
+    const BUILDING_KEYWORDS = ['manor', 'house', 'wall', 'roof', 'door', 'window', 'building', 'chimney', 'porch'];
+    const DECORATION_KEYWORDS = ['rock', 'stone', 'fence', 'lamp', 'light', 'prop', 'barrel', 'crate', 'statue', 'well', 'sign'];
+    const HIGH_POLY_THRESHOLD = 20000;
+
+    const classify = (name) => {
+      const lower = (name || '').toLowerCase();
+      if (GROUND_KEYWORDS.some((keyword) => lower.includes(keyword))) return 'ground';
+      if (TREE_KEYWORDS.some((keyword) => lower.includes(keyword))) return 'tree';
+      if (BUSH_KEYWORDS.some((keyword) => lower.includes(keyword))) return 'bush';
+      if (BUILDING_KEYWORDS.some((keyword) => lower.includes(keyword))) return 'building';
+      if (DECORATION_KEYWORDS.some((keyword) => lower.includes(keyword))) return 'decoration';
+      return 'unclassified';
+    };
+
+    const triangleCountOf = (mesh) => {
+      const geometry = mesh.geometry;
+      if (!geometry) return 0;
+      if (geometry.index) return geometry.index.count / 3;
+      if (geometry.attributes?.position) return geometry.attributes.position.count / 3;
+      return 0;
+    };
+
+    const meshReports = meshes.map((mesh) => ({
+      name: mesh.name || '(unnamed)',
+      classification: classify(mesh.name),
+      triangles: Math.round(triangleCountOf(mesh)),
+    }));
+
+    const totalTriangles = meshReports.reduce((sum, entry) => sum + entry.triangles, 0);
+    const groundCandidates = meshReports.filter((entry) => entry.classification === 'ground');
+    const treeCandidates = meshReports.filter((entry) => entry.classification === 'tree');
+    const decorationCandidates = meshReports.filter(
+      (entry) => entry.classification === 'decoration' || entry.classification === 'bush'
+    );
+    const highPolyMeshes = meshReports.filter((entry) => entry.triangles > HIGH_POLY_THRESHOLD);
+
+    const printHierarchy = (object3D, depth) => {
+      const indent = '  '.repeat(depth);
+      const kind = object3D.isMesh ? 'Mesh' : object3D.isGroup ? 'Group' : object3D.type;
+      console.log(`${indent}- ${object3D.name || '(unnamed)'} [${kind}]`);
+      object3D.children.forEach((child) => printHierarchy(child, depth + 1));
+    };
+
+    console.groupCollapsed('%c[Manor Inspection Report]', 'color: #cc44ff; font-weight: bold;');
+
+    console.log('1. Total meshes:', meshes.length);
+
+    console.log('2. Object hierarchy:');
+    printHierarchy(model, 0);
+
+    console.log('3. Mesh names:', meshes.map((mesh) => mesh.name || '(unnamed)'));
+
+    console.log('4. Bounding box size (x, y, z):', size);
+    console.log('5. Bounding box center (x, y, z):', center);
+
+    console.log(
+      '6. Ground candidates (by name heuristic):',
+      groundCandidates.length ? groundCandidates : 'none matched — inspect mesh names manually'
+    );
+    console.log(
+      '7. Tree candidates (by name heuristic):',
+      treeCandidates.length ? treeCandidates : 'none matched — inspect mesh names manually'
+    );
+    console.log(
+      '8. Decoration/bush candidates (by name heuristic):',
+      decorationCandidates.length ? decorationCandidates : 'none matched — inspect mesh names manually'
+    );
+
+    console.log(
+      '9. Triangle count per mesh:',
+      meshReports.map((entry) => `${entry.name}: ~${entry.triangles} tris (${entry.classification})`)
+    );
+    console.log('10. Overall triangle count: ~' + totalTriangles);
+
+    console.log(
+      '11. Direct-collision suitability (heuristic):',
+      totalTriangles > HIGH_POLY_THRESHOLD
+        ? `Likely NOT suitable for direct per-triangle collision — ~${totalTriangles} total triangles exceeds the ${HIGH_POLY_THRESHOLD} heuristic threshold. High-poly mesh(es): ${highPolyMeshes.map((entry) => entry.name).join(', ') || 'none individually, but the sum is high'}.`
+        : `Total triangle count (~${totalTriangles}) is under the ${HIGH_POLY_THRESHOLD} heuristic threshold — direct collision against select structural meshes may be feasible.`
+    );
+
+    console.log(
+      '12. Suggested starting strategy (derived from the above — needs human review):',
+      `Ground mesh: ${groundCandidates[0]?.name ?? 'not confidently identified by name'}. ` +
+        `Building meshes: prefer simplified box/cylinder proxies over raw geometry. ` +
+        `${treeCandidates.length} tree mesh(es) found — consider per-tree cylinder proxies for trunks, skip foliage. ` +
+        `${decorationCandidates.length} decoration/bush mesh(es) found — likely skippable for collision.`
+    );
+
+    console.groupEnd();
   }
 
   /**
