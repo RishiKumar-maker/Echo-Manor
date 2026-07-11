@@ -31,27 +31,28 @@ const AMBIENT_INTENSITY = 0.5;
 const MANOR_POSITION = { x: 0, y: 0, z: -20 };
 
 /**
- * Static camera framing, recomposed from scratch to fix the camera
- * sitting low in the model's own foreground terrain/rocks:
- * - Y is raised well above typical terrain/rock height, so the
- *   sightline clears the foreground instead of looking through it.
- * - Z is pulled meaningfully closer to the manor than before.
- * - The look-at target sits low (near the entrance), so from the
- *   raised position the camera pitches slightly downward onto the
- *   entrance — a heroic, elevated establishing angle rather than a
- *   low, obstructed one.
- * - FOV is a bit wider than a telephoto crop, which matters at this
- *   closer distance: for a ~40-unit-tall subject, a tight FOV this
- *   close would overfill the frame past the 60% ceiling. The wider
- *   angle keeps the manor comfortably framed and gives surrounding
- *   trees room to sit at the frame edges instead of being pushed
- *   out entirely.
- * These are a strong starting point, not a guarantee of an exact
- * percentage — fine-tune against the real model/terrain by eye.
+ * Static camera framing, calculated (not guessed) from the target
+ * fill fraction using: d = (H/2) / tan(f × FOV/2)
+ * where H = MANOR_TARGET_HEIGHT (40), f = desired fraction of
+ * vertical FOV the manor should occupy (0.6, middle of the 55–65%
+ * target), and FOV = 65°.
+ *   half-angle = 0.6 × 32.5° = 19.5°
+ *   tan(19.5°) = 0.3541
+ *   d = 20 / 0.3541 ≈ 56.5
+ * That distance is what actually hits ~60% vertical fill — a
+ * closer distance would overfill and crop the manor, which is what
+ * was happening before. Y is raised further (to roughly two-thirds
+ * of the manor's own height) so the sightline clears foreground
+ * tree/terrain height entirely — the "standing on a hill" vantage —
+ * and the look-at target sits near ground level at the entrance,
+ * producing the downward pitch. X is offset slightly to shift the
+ * near-camera parallax off whichever trunk was sitting dead-center;
+ * the look-at X target stays at the manor's own X (0), so this
+ * shifts the foreground without de-centering the subject.
  */
-const CAMERA_FOV = 58;
-const CAMERA_VIEW_POSITION = { x: 0, y: 20, z: 20 };
-const CAMERA_LOOK_AT_HEIGHT = 9;
+const CAMERA_FOV = 65;
+const CAMERA_VIEW_POSITION = { x: 6, y: 26, z: 36.5 };
+const CAMERA_LOOK_AT_HEIGHT = 4;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
