@@ -29,7 +29,7 @@ const MANOR_MODEL_ID = 'manor';
 const GROUND_TEXTURE_ID = 'groundDiffuse';
 
 /** Target height (world units) the loaded manor model gets scaled to. */
-const MANOR_TARGET_HEIGHT = 15;
+const MANOR_TARGET_HEIGHT = 30;
 
 /**
  * BootScene owns only the first visible world: ground, fog,
