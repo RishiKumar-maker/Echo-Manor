@@ -50,9 +50,9 @@ const MANOR_POSITION = { x: 0, y: 0, z: -15 };
  * the look-at X target stays at the manor's own X (0), so this
  * shifts the foreground without de-centering the subject.
  */
-const CAMERA_FOV = 75;
-const CAMERA_VIEW_POSITION = { x: -18, y: 10, z: 0 };
-const CAMERA_LOOK_AT_HEIGHT = 14;
+const CAMERA_FOV = 68;
+const CAMERA_VIEW_POSITION = { x: -15, y: 13, z: 4 };
+const CAMERA_LOOK_AT_HEIGHT = 12;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
