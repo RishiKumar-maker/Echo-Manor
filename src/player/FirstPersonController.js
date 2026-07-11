@@ -1,117 +1,182 @@
-import { SceneManager } from './SceneManager.js';
-import { AssetManager } from './AssetManager.js';
-import { Renderer } from '../engine/Renderer.js';
-import { Camera } from '../engine/Camera.js';
-import { GameLoop } from '../engine/GameLoop.js';
-import { BootScene } from '../game/scenes/BootScene.js';
-import { InputManager } from '../input/InputManager.js';
-import { FirstPersonController } from '../player/FirstPersonController.js';
+import * as THREE from 'three';
+
+/** Walking speed, in world units per second. */
+const WALK_SPEED = 3;
+
+/** Sprinting speed, in world units per second. */
+const SPRINT_SPEED = 6;
+
+/** Mouse-look sensitivity: radians of rotation per pixel of mouse movement. */
+const MOUSE_SENSITIVITY = 0.002;
+
+/** Clamp on vertical look angle so the camera can't flip past straight up/down. */
+const MAX_PITCH = Math.PI / 2 - 0.01;
+
+/** KeyboardEvent.code values this controller reads. */
+const MOVEMENT_KEYS = {
+  FORWARD: 'KeyW',
+  BACKWARD: 'KeyS',
+  LEFT: 'KeyA',
+  RIGHT: 'KeyD',
+  SPRINT: 'ShiftLeft',
+};
+
+/** DOM event used to request Pointer Lock when the canvas is clicked. */
+const CLICK_EVENT = 'click';
 
 /**
- * Creates every core manager/subsystem and wires them together.
+ * The first playable first-person controller: lets the player walk
+ * around BootScene with WASD (with sprint) and look around with the
+ * mouse while Pointer Lock is active. It manipulates the existing
+ * camera directly — no new camera is created, and nothing about the
+ * engine's existing camera setup is touched otherwise.
  *
- * GameManager owns exactly one active scene at a time (currently
- * BootScene). The scene itself owns its world objects — meshes,
- * lights, fog, loaded models — and is responsible for creating and
- * disposing them. GameManager does not touch scene content directly;
- * it only controls the scene's lifecycle, calling initialize() once,
- * update() every frame, and dispose() on shutdown or when swapping
- * to a different scene. Future scene switching means reassigning
- * activeScene to a new BaseScene subclass and driving it the same way.
- *
- * AssetManager is the single source of asset loading for every
- * scene. GameManager loads its manifest before initializing the
- * active scene, so any assets the scene requests are resolvable
- * (or safely absent) from the moment initialize() runs.
- *
- * InputManager and FirstPersonController provide the first playable
- * movement, applied directly to the existing camera. Each frame,
- * input is read and applied before InputManager.update() clears its
- * one-frame press/release/mouse-delta state — reversing that order
- * would zero the mouse delta before FirstPersonController ever sees it.
+ * Movement only: no collision, gravity, jumping, interaction, or
+ * networking. Follows the same initialize()/update(delta)/dispose()
+ * lifecycle used elsewhere in the engine.
  */
-export class GameManager {
-  constructor() {
-    /** @type {SceneManager} */
-    this.sceneManager = new SceneManager();
+export class FirstPersonController {
+  /**
+   * @param {THREE.PerspectiveCamera} camera - The existing camera to move and look around with.
+   * @param {import('../input/InputManager.js').InputManager} inputManager - Source of keyboard/mouse/pointer-lock state.
+   * @param {HTMLElement} domElement - The canvas element clicked to request Pointer Lock.
+   */
+  constructor(camera, inputManager, domElement) {
+    /** @private */
+    this._camera = camera;
 
-    /** @type {AssetManager} */
-    this.assetManager = new AssetManager();
+    /** @private */
+    this._inputManager = inputManager;
 
-    /** @type {Renderer} */
-    this.renderer = new Renderer();
-
-    /** @type {Camera} */
-    this.camera = new Camera();
-
-    /** @type {GameLoop} */
-    this.gameLoop = new GameLoop((deltaTime) => this.update(deltaTime));
+    /** @private */
+    this._domElement = domElement;
 
     /**
-     * The single active scene. BootScene owns the visual world
-     * (ground, fog, lighting, manor) itself, so the generic engine
-     * Lighting default is not wired in here — the active scene is
-     * responsible for its own lighting content.
-     * @type {BootScene}
+     * Current look angles, in radians. Seeded from the camera's
+     * actual orientation in initialize() (not here — the camera may
+     * still be reframed by the active scene after construction but
+     * before initialize() runs), so mouse look starts from whatever
+     * view the scene set up rather than snapping to zero.
+     * @private
      */
-    this.activeScene = new BootScene({
-      scene: this.sceneManager.scene,
-      camera: this.camera.instance,
-      renderer: this.renderer.instance,
-      assetManager: this.assetManager,
-    });
+    this._yaw = 0;
 
-    /** @type {InputManager} */
-    this.inputManager = new InputManager();
+    /** @private */
+    this._pitch = 0;
 
     /**
-     * The first playable movement: WASD + sprint + pointer-lock
-     * mouse look, applied directly to the existing camera.
-     * @type {FirstPersonController}
+     * Local-space input direction for the current frame, reused
+     * every frame instead of being reallocated.
+     * @private @type {THREE.Vector3}
      */
-    this.firstPersonController = new FirstPersonController(
-      this.camera.instance,
-      this.inputManager,
-      this.renderer.domElement
-    );
+    this._inputDirection = new THREE.Vector3();
+
+    /**
+     * World-space displacement for the current frame, reused every
+     * frame instead of being reallocated.
+     * @private @type {THREE.Vector3}
+     */
+    this._movement = new THREE.Vector3();
+
+    /**
+     * World up axis, used to rotate the local input direction by the
+     * current yaw. Created once and reused every frame.
+     * @private @type {THREE.Vector3}
+     */
+    this._upAxis = new THREE.Vector3(0, 1, 0);
+
+    /** @private */
+    this._onClick = this._onClick.bind(this);
   }
 
   /**
-   * Loads the asset manifest, initializes the active scene, and
-   * starts the render loop. The manifest must be ready before the
-   * scene initializes, since it resolves every asset id it needs
-   * (manor model, ground texture) through AssetManager.
-   * @returns {Promise<void>}
+   * Sets the camera's rotation order for FPS-style look (yaw applied
+   * before pitch, avoiding roll drift), seeds yaw/pitch from the
+   * camera's current orientation, and starts listening for clicks on
+   * the canvas to engage Pointer Lock.
    */
-  async init() {
-    await this.assetManager.initialize();
-    await this.activeScene.initialize();
+  initialize() {
+    this._camera.rotation.order = 'YXZ';
+    this._yaw = this._camera.rotation.y;
+    this._pitch = this._camera.rotation.x;
 
-    this.inputManager.initialize();
-    this.firstPersonController.initialize();
-
-    this.gameLoop.start();
+    this._domElement.addEventListener(CLICK_EVENT, this._onClick);
   }
 
   /**
-   * Stops the render loop and disposes the active scene.
+   * Applies mouse look (only while Pointer Lock is active) and WASD
+   * movement for the current frame. Entirely delta-time based, so
+   * movement speed doesn't change with frame rate.
+   * @param {number} delta - Time in seconds since the last frame.
    */
-  stop() {
-    this.gameLoop.stop();
-    this.firstPersonController.dispose();
-    this.inputManager.dispose();
-    this.activeScene?.dispose();
+  update(delta) {
+    if (this._inputManager.isPointerLocked()) {
+      this._applyMouseLook();
+    }
+    this._applyMovement(delta);
   }
 
   /**
-   * Called once per frame by the GameLoop.
-   * @param {number} deltaTime - Time in seconds since the last frame.
+   * Stops listening for canvas clicks. Does not touch the camera's
+   * transform or exit Pointer Lock — both are owned elsewhere.
    */
-  update(deltaTime) {
-    this.firstPersonController.update(deltaTime);
-    this.inputManager.update();
+  dispose() {
+    this._domElement.removeEventListener(CLICK_EVENT, this._onClick);
+  }
 
-    this.activeScene.update(deltaTime);
-    this.renderer.render(this.sceneManager.scene, this.camera.instance);
+  /**
+   * Rotates the camera from accumulated mouse movement, clamping
+   * vertical look so the camera can't flip past straight up/down.
+   * @private
+   */
+  _applyMouseLook() {
+    const mouseDelta = this._inputManager.getMouseDelta();
+
+    this._yaw -= mouseDelta.x * MOUSE_SENSITIVITY;
+    this._pitch -= mouseDelta.y * MOUSE_SENSITIVITY;
+    this._pitch = THREE.MathUtils.clamp(this._pitch, -MAX_PITCH, MAX_PITCH);
+
+    this._camera.rotation.set(this._pitch, this._yaw, 0);
+  }
+
+  /**
+   * Moves the camera based on held WASD/sprint keys, relative to the
+   * current yaw so "forward" always means "the way you're facing,"
+   * regardless of vertical look angle.
+   * @param {number} delta - Time in seconds since the last frame.
+   * @private
+   */
+  _applyMovement(delta) {
+    const forward = this._inputManager.isKeyDown(MOVEMENT_KEYS.FORWARD);
+    const backward = this._inputManager.isKeyDown(MOVEMENT_KEYS.BACKWARD);
+    const left = this._inputManager.isKeyDown(MOVEMENT_KEYS.LEFT);
+    const right = this._inputManager.isKeyDown(MOVEMENT_KEYS.RIGHT);
+
+    this._inputDirection.set(Number(right) - Number(left), 0, Number(backward) - Number(forward));
+
+    if (this._inputDirection.lengthSq() === 0) {
+      return;
+    }
+
+    this._inputDirection.normalize();
+
+    const speed = this._inputManager.isKeyDown(MOVEMENT_KEYS.SPRINT) ? SPRINT_SPEED : WALK_SPEED;
+
+    this._movement
+      .copy(this._inputDirection)
+      .applyAxisAngle(this._upAxis, this._yaw)
+      .multiplyScalar(speed * delta);
+
+    this._camera.position.add(this._movement);
+  }
+
+  /**
+   * Requests Pointer Lock on the canvas when it's clicked. Escape
+   * exits Pointer Lock automatically via the browser's native
+   * behavior, so no explicit key handling is needed for that side.
+   * @private
+   */
+  _onClick() {
+    this._inputManager.requestPointerLock(this._domElement);
   }
 }
