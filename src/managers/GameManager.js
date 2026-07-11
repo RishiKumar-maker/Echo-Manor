@@ -4,6 +4,8 @@ import { Renderer } from '../engine/Renderer.js';
 import { Camera } from '../engine/Camera.js';
 import { GameLoop } from '../engine/GameLoop.js';
 import { BootScene } from '../game/scenes/BootScene.js';
+import { InputManager } from '../input/InputManager.js';
+import { FirstPersonController } from '../player/FirstPersonController.js';
 
 /**
  * Creates every core manager/subsystem and wires them together.
@@ -21,6 +23,12 @@ import { BootScene } from '../game/scenes/BootScene.js';
  * scene. GameManager loads its manifest before initializing the
  * active scene, so any assets the scene requests are resolvable
  * (or safely absent) from the moment initialize() runs.
+ *
+ * InputManager and FirstPersonController provide the first playable
+ * movement, applied directly to the existing camera. Each frame,
+ * input is read and applied before InputManager.update() clears its
+ * one-frame press/release/mouse-delta state — reversing that order
+ * would zero the mouse delta before FirstPersonController ever sees it.
  */
 export class GameManager {
   constructor() {
@@ -52,6 +60,20 @@ export class GameManager {
       renderer: this.renderer.instance,
       assetManager: this.assetManager,
     });
+
+    /** @type {InputManager} */
+    this.inputManager = new InputManager();
+
+    /**
+     * The first playable movement: WASD + sprint + pointer-lock
+     * mouse look, applied directly to the existing camera.
+     * @type {FirstPersonController}
+     */
+    this.firstPersonController = new FirstPersonController(
+      this.camera.instance,
+      this.inputManager,
+      this.renderer.domElement
+    );
   }
 
   /**
@@ -64,6 +86,10 @@ export class GameManager {
   async init() {
     await this.assetManager.initialize();
     await this.activeScene.initialize();
+
+    this.inputManager.initialize();
+    this.firstPersonController.initialize();
+
     this.gameLoop.start();
   }
 
@@ -72,6 +98,8 @@ export class GameManager {
    */
   stop() {
     this.gameLoop.stop();
+    this.firstPersonController.dispose();
+    this.inputManager.dispose();
     this.activeScene?.dispose();
   }
 
@@ -80,6 +108,9 @@ export class GameManager {
    * @param {number} deltaTime - Time in seconds since the last frame.
    */
   update(deltaTime) {
+    this.firstPersonController.update(deltaTime);
+    this.inputManager.update();
+
     this.activeScene.update(deltaTime);
     this.renderer.render(this.sceneManager.scene, this.camera.instance);
   }
