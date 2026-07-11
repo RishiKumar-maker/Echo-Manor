@@ -28,7 +28,7 @@ const AMBIENT_COLOR = 0x1a2740;
 const AMBIENT_INTENSITY = 0.5;
 
 /** World position for the manor (loaded model or placeholder). */
-const MANOR_POSITION = { x: 0, y: 0, z: -20 };
+const MANOR_POSITION = { x: 0, y: 0, z: 0 };
 
 /**
  * Static camera framing, calculated (not guessed) from the target
