@@ -28,7 +28,7 @@ const AMBIENT_COLOR = 0x1a2740;
 const AMBIENT_INTENSITY = 0.5;
 
 /** World position for the manor (loaded model or placeholder). */
-const MANOR_POSITION = { x: 0, y: 0, z: 0 };
+const MANOR_POSITION = { x: 0, y: 0, z: -15 };
 
 /**
  * Static camera framing, calculated (not guessed) from the target
@@ -51,7 +51,7 @@ const MANOR_POSITION = { x: 0, y: 0, z: 0 };
  * shifts the foreground without de-centering the subject.
  */
 const CAMERA_FOV = 65;
-const CAMERA_VIEW_POSITION = { x: 2, y: 12, z: 80 };
+const CAMERA_VIEW_POSITION = { x: 2, y: 12, z: -20 };
 const CAMERA_LOOK_AT_HEIGHT = 20;
 
 /** AssetManager manifest ids this scene asks for. */
