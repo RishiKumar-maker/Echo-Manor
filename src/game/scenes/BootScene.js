@@ -1,28 +1,47 @@
 import * as THREE from 'three';
 import { BaseScene } from './BaseScene.js';
 
-/** Ground plane size, in world units. */
+/** Ground plane size, in world units. Only used for the fallback ground. */
 const GROUND_SIZE = 200;
 
-/** Fog color and density: subtle blue-gray, suited to a night scene. */
+/**
+ * Fog color and density: subtle blue-gray, suited to a night scene.
+ * Density kept low enough that the manor stays clearly readable at
+ * CAMERA_VIEW_POSITION's distance — fog should add atmosphere, not
+ * hide the subject.
+ */
 const FOG_COLOR = 0x0d1420;
-const FOG_DENSITY = 0.015;
+const FOG_DENSITY = 0.01;
 
-/** Moonlight (directional light) color, intensity, and position. */
+/**
+ * Moonlight (directional light) color, intensity, and position.
+ * Intensity nudged up slightly from the original pass so the manor's
+ * silhouette and detail read clearly, while staying well short of
+ * daylight levels to keep the mysterious night mood.
+ */
 const MOONLIGHT_COLOR = 0xaac8ff;
-const MOONLIGHT_INTENSITY = 0.9;
+const MOONLIGHT_INTENSITY = 1.1;
 const MOONLIGHT_POSITION = { x: -30, y: 45, z: -15 };
 
 /** Ambient fill light color and intensity. */
 const AMBIENT_COLOR = 0x1a2740;
-const AMBIENT_INTENSITY = 0.4;
+const AMBIENT_INTENSITY = 0.5;
 
 /** World position for the manor (loaded model or placeholder). */
 const MANOR_POSITION = { x: 0, y: 0, z: -20 };
 
-/** Camera framing so the manor is visible from a distance. */
-const CAMERA_VIEW_POSITION = { x: 0, y: 9, z: 26 };
-const CAMERA_LOOK_AT_HEIGHT = 6;
+/**
+ * Static camera framing, tuned so the manor reads as large and
+ * imposing rather than distant: a narrower-than-default FOV
+ * compresses perspective (a telephoto-style look, not a wide-angle
+ * one) so the building fills more of the frame with less foreground
+ * ground/terrain visible in front of it. The look-at target sits
+ * partway up the building's height rather than at its base, tilting
+ * the camera upward toward its mass.
+ */
+const CAMERA_FOV = 50;
+const CAMERA_VIEW_POSITION = { x: 0, y: 10, z: 34 };
+const CAMERA_LOOK_AT_HEIGHT = 16;
 
 /** AssetManager manifest ids this scene asks for. */
 const MANOR_MODEL_ID = 'manor';
@@ -32,9 +51,11 @@ const GROUND_TEXTURE_ID = 'groundDiffuse';
 const MANOR_TARGET_HEIGHT = 40;
 
 /**
- * BootScene owns only the first visible world: ground, fog,
- * moonlight, ambient light, and the manor (a loaded model if
- * AssetManager has one, otherwise a placeholder building). It
+ * BootScene owns only the first visible world: fog, moonlight,
+ * ambient light, the manor (a loaded model if AssetManager has one,
+ * otherwise a placeholder building), and a fallback ground plane —
+ * only created when the placeholder is in use, since a successfully
+ * loaded manor model brings its own terrain and environment. It
  * creates no UI, no input handling, no audio, and does no asset
  * loading of its own — every asset request goes through the
  * AssetManager passed in, which is the single source of loading,
@@ -88,7 +109,10 @@ export class BootScene extends BaseScene {
   }
 
   /**
-   * Builds the boot world: fog, lighting, ground, manor, and camera framing.
+   * Builds the boot world: fog, lighting, the manor, and camera
+   * framing. The fallback ground plane is only created if the real
+   * manor model isn't available — the loaded model brings its own
+   * terrain/environment, so no separate ground is added on top of it.
    * @returns {Promise<void>}
    */
   async initialize() {
@@ -96,8 +120,12 @@ export class BootScene extends BaseScene {
 
     this._createFog();
     this._createLighting();
-    await this._createGround();
     await this._createManor();
+
+    if (this._manorIsPlaceholder) {
+      await this._createGround();
+    }
+
     this._frameCamera();
   }
 
@@ -168,8 +196,10 @@ export class BootScene extends BaseScene {
   }
 
   /**
-   * Creates the ground plane, using AssetManager's texture if one is
-   * available, otherwise a dark gray fallback material.
+   * Creates the fallback ground plane, using AssetManager's texture
+   * if one is available, otherwise a dark gray material. Only called
+   * when the manor model wasn't available and the placeholder is in
+   * use — a successfully loaded manor brings its own terrain.
    * @private
    */
   async _createGround() {
@@ -259,7 +289,8 @@ export class BootScene extends BaseScene {
   }
 
   /**
-   * Positions the camera so the manor is visible from a distance.
+   * Positions the camera so the manor reads as large and imposing,
+   * and applies the tuned FOV. Static framing only — no animation.
    * @private
    */
   _frameCamera() {
@@ -271,6 +302,11 @@ export class BootScene extends BaseScene {
       CAMERA_VIEW_POSITION.z
     );
     this.camera.lookAt(MANOR_POSITION.x, CAMERA_LOOK_AT_HEIGHT, MANOR_POSITION.z);
+
+    if (typeof this.camera.fov === 'number') {
+      this.camera.fov = CAMERA_FOV;
+      this.camera.updateProjectionMatrix();
+    }
   }
 
   /**
