@@ -1,9 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from './BaseScene.js';
 
-/** Ground plane size, in world units. Only used for the fallback ground. */
-const GROUND_SIZE = 200;
-
 /**
  * Fog color and density: subtle blue-gray, suited to a night scene.
  * Density kept low enough that the manor stays clearly readable at
@@ -54,23 +51,21 @@ const CAMERA_FOV = 65;
 const CAMERA_VIEW_POSITION = { x: 6, y: 26, z: 36.5 };
 const CAMERA_LOOK_AT_HEIGHT = 4;
 
-/** AssetManager manifest ids this scene asks for. */
+/** AssetManager manifest id for the manor model. */
 const MANOR_MODEL_ID = 'manor';
-const GROUND_TEXTURE_ID = 'groundDiffuse';
 
 /** Target height (world units) the loaded manor model gets scaled to. */
 const MANOR_TARGET_HEIGHT = 40;
 
 /**
  * BootScene owns only the first visible world: fog, moonlight,
- * ambient light, the manor (a loaded model if AssetManager has one,
- * otherwise a placeholder building), and a fallback ground plane —
- * only created when the placeholder is in use, since a successfully
- * loaded manor model brings its own terrain and environment. It
- * creates no UI, no input handling, no audio, and does no asset
- * loading of its own — every asset request goes through the
- * AssetManager passed in, which is the single source of loading,
- * caching, and manifest resolution for the whole project.
+ * ambient light, and the manor (a loaded model if AssetManager has
+ * one, otherwise a placeholder building). The manor model brings
+ * its own terrain/ground, so BootScene does not create any ground
+ * of its own. It creates no UI, no input handling, no audio, and
+ * does no asset loading of its own — every asset request goes
+ * through the AssetManager passed in, which is the single source of
+ * loading, caching, and manifest resolution for the whole project.
  *
  * Extends BaseScene and overrides initialize() and dispose(); it has
  * no per-frame behavior, so update() is left as BaseScene's no-op.
@@ -90,9 +85,6 @@ export class BootScene extends BaseScene {
     this.camera = camera;
     this.renderer = renderer;
     this.assetManager = assetManager;
-
-    /** @type {THREE.Mesh|null} */
-    this.ground = null;
 
     /** @type {THREE.DirectionalLight|null} */
     this.moonlight = null;
@@ -121,9 +113,8 @@ export class BootScene extends BaseScene {
 
   /**
    * Builds the boot world: fog, lighting, the manor, and camera
-   * framing. The fallback ground plane is only created if the real
-   * manor model isn't available — the loaded model brings its own
-   * terrain/environment, so no separate ground is added on top of it.
+   * framing. No separate ground is created — the manor model brings
+   * its own terrain, and the placeholder doesn't need one either.
    * @returns {Promise<void>}
    */
   async initialize() {
@@ -132,30 +123,17 @@ export class BootScene extends BaseScene {
     this._createFog();
     this._createLighting();
     await this._createManor();
-
-    if (this._manorIsPlaceholder) {
-      await this._createGround();
-    }
-
     this._frameCamera();
   }
 
   /**
    * Removes everything BootScene added to the scene. Only disposes
-   * geometries/materials it created itself (the ground mesh and any
-   * placeholder manor) — assets obtained from AssetManager are left
-   * intact, since AssetManager's cache may still be serving them
-   * elsewhere.
+   * geometries/materials it created itself (a placeholder manor, if
+   * in use) — assets obtained from AssetManager are left intact,
+   * since AssetManager's cache may still be serving them elsewhere.
    */
   dispose() {
     this._disposed = true;
-
-    if (this.ground) {
-      this.scene.remove(this.ground);
-      this.ground.geometry.dispose();
-      this.ground.material.dispose();
-      this.ground = null;
-    }
 
     if (this.manor) {
       this.scene.remove(this.manor);
@@ -204,30 +182,6 @@ export class BootScene extends BaseScene {
     this.ambientLight = new THREE.AmbientLight(AMBIENT_COLOR, AMBIENT_INTENSITY);
 
     this.scene.add(this.moonlight, this.ambientLight);
-  }
-
-  /**
-   * Creates the fallback ground plane, using AssetManager's texture
-   * if one is available, otherwise a dark gray material. Only called
-   * when the manor model wasn't available and the placeholder is in
-   * use — a successfully loaded manor brings its own terrain.
-   * @private
-   */
-  async _createGround() {
-    const geometry = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE);
-    const texture = await this.assetManager.loadTexture(GROUND_TEXTURE_ID);
-
-    if (this._disposed) return;
-
-    const material = texture
-      ? new THREE.MeshStandardMaterial({ map: texture, roughness: 1 })
-      : new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 1 });
-
-    this.ground = new THREE.Mesh(geometry, material);
-    this.ground.rotation.x = -Math.PI / 2;
-    this.ground.receiveShadow = this.shadowsEnabled;
-
-    this.scene.add(this.ground);
   }
 
   /**
