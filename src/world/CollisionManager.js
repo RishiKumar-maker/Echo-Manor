@@ -53,10 +53,17 @@ export class CollisionManager {
   /**
    * Registers a box as a collision volume. Stored by reference — if
    * the box's min/max are mutated afterward, the registered collider
-   * reflects that change on the next query.
+   * reflects that change on the next query. A falsy or non-Box3-like
+   * value is ignored with a console warning rather than being stored
+   * and failing later, confusingly, inside intersectsSphere().
    * @param {THREE.Box3} box - The axis-aligned box to register.
    */
   addBox(box) {
+    if (!box || typeof box.intersectsSphere !== 'function') {
+      console.warn('CollisionManager.addBox: expected a THREE.Box3-like object; ignored.', box);
+      return;
+    }
+
     this._boxes.push(box);
   }
 
@@ -74,16 +81,29 @@ export class CollisionManager {
 
   /**
    * Checks whether a sphere intersects any registered box. Uses a
-   * single reused Sphere instance internally, so calling this every
-   * frame allocates nothing.
+   * single reused Sphere instance and a plain indexed loop, so
+   * calling this every frame allocates nothing — not even a callback
+   * closure. An invalid center or radius logs a warning and returns
+   * false rather than throwing or silently comparing against NaN.
    * @param {THREE.Vector3} center - World-space center of the sphere to test.
    * @param {number} radius - Radius of the sphere to test.
    * @returns {boolean} True if the sphere intersects at least one registered box.
    */
   intersectsSphere(center, radius) {
+    if (!center || typeof radius !== 'number' || !Number.isFinite(radius)) {
+      console.warn('CollisionManager.intersectsSphere: invalid center or radius; returning false.');
+      return false;
+    }
+
     this._querySphere.center.copy(center);
     this._querySphere.radius = radius;
 
-    return this._boxes.some((box) => box.intersectsSphere(this._querySphere));
+    for (let i = 0; i < this._boxes.length; i++) {
+      if (this._boxes[i].intersectsSphere(this._querySphere)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
