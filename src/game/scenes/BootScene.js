@@ -159,6 +159,23 @@ export class BootScene extends BaseScene {
   }
 
   /**
+   * Returns the currently active manor Object3D — the loaded GLTF
+   * model if AssetManager provided one, or the placeholder building
+   * if it didn't — so future systems (CollisionManager,
+   * InteractionManager, AudioManager, OcclusionManager, etc.) can
+   * read its transform and geometry without BootScene giving up
+   * ownership. BootScene remains the only thing that creates,
+   * positions, scales, and disposes this object; callers only
+   * receive a reference to inspect or attach to, not a copy, and not
+   * any control over its lifecycle. Returns null before the manor
+   * has been created or after this scene has been disposed.
+   * @returns {THREE.Object3D|null}
+   */
+  getManor() {
+    return this.manor;
+  }
+
+  /**
    * Creates subtle blue-gray exponential fog for a night scene.
    * @private
    */
