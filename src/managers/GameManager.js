@@ -6,6 +6,7 @@ import { GameLoop } from '../engine/GameLoop.js';
 import { BootScene } from '../game/scenes/BootScene.js';
 import { InputManager } from '../input/InputManager.js';
 import { FirstPersonController } from '../player/FirstPersonController.js';
+import { CollisionManager } from '../world/CollisionManager.js';
 
 /**
  * Creates every core manager/subsystem and wires them together.
@@ -29,6 +30,13 @@ import { FirstPersonController } from '../player/FirstPersonController.js';
  * input is read and applied before InputManager.update() clears its
  * one-frame press/release/mouse-delta state — reversing that order
  * would zero the mouse delta before FirstPersonController ever sees it.
+ *
+ * CollisionManager is owned here as the engine's single collision
+ * subsystem, following the same pattern as AssetManager before it —
+ * wired into the lifecycle now so future systems have one known
+ * place to register/query volumes. It has no per-frame work yet, so
+ * it is not part of the update() loop; nothing registers boxes or
+ * queries it at this stage.
  */
 export class GameManager {
   constructor() {
@@ -74,6 +82,14 @@ export class GameManager {
       this.inputManager,
       this.renderer.domElement
     );
+
+    /**
+     * Owns collision volumes and answers intersection queries for
+     * the engine. No boxes are registered and no queries are made
+     * yet — this is only the permanent subsystem wiring.
+     * @type {CollisionManager}
+     */
+    this.collisionManager = new CollisionManager();
   }
 
   /**
@@ -89,6 +105,7 @@ export class GameManager {
 
     this.inputManager.initialize();
     this.firstPersonController.initialize();
+    this.collisionManager.initialize();
 
     this.gameLoop.start();
   }
@@ -100,6 +117,7 @@ export class GameManager {
     this.gameLoop.stop();
     this.firstPersonController.dispose();
     this.inputManager.dispose();
+    this.collisionManager.dispose();
     this.activeScene?.dispose();
   }
 
