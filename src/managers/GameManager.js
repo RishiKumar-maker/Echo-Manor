@@ -7,6 +7,7 @@ import { BootScene } from '../game/scenes/BootScene.js';
 import { InputManager } from '../input/InputManager.js';
 import { FirstPersonController } from '../player/FirstPersonController.js';
 import { CollisionManager } from '../world/CollisionManager.js';
+import { SpawnManager } from './SpawnManager.js';
 
 /**
  * Creates every core manager/subsystem and wires them together.
@@ -37,6 +38,11 @@ import { CollisionManager } from '../world/CollisionManager.js';
  * place to register/query volumes. It has no per-frame work yet, so
  * it is not part of the update() loop; nothing registers boxes or
  * queries it at this stage.
+ *
+ * SpawnManager is owned here the same way, as the engine's single
+ * store of named spawn locations. It has no per-frame work either,
+ * so it is also not part of the update() loop; nothing registers a
+ * spawn point at this stage.
  */
 export class GameManager {
   constructor() {
@@ -90,6 +96,14 @@ export class GameManager {
      * @type {CollisionManager}
      */
     this.collisionManager = new CollisionManager();
+
+    /**
+     * Owns named player spawn locations for the engine. No spawn
+     * points are registered yet — this is only the permanent
+     * subsystem wiring.
+     * @type {SpawnManager}
+     */
+    this.spawnManager = new SpawnManager();
   }
 
   /**
@@ -106,6 +120,7 @@ export class GameManager {
     this.inputManager.initialize();
     this.firstPersonController.initialize();
     this.collisionManager.initialize();
+    this.spawnManager.initialize();
 
     this.gameLoop.start();
   }
@@ -118,6 +133,7 @@ export class GameManager {
     this.firstPersonController.dispose();
     this.inputManager.dispose();
     this.collisionManager.dispose();
+    this.spawnManager.dispose();
     this.activeScene?.dispose();
   }
 
