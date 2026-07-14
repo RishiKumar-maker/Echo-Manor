@@ -62,6 +62,15 @@ export class GameManager {
     this.gameLoop = new GameLoop((deltaTime) => this.update(deltaTime));
 
     /**
+     * Owns named player spawn locations for the engine. Created
+     * before BootScene so it can be handed in as a constructor
+     * dependency — BootScene registers the "arrival" spawn point
+     * once the manor is positioned.
+     * @type {SpawnManager}
+     */
+    this.spawnManager = new SpawnManager();
+
+    /**
      * The single active scene. BootScene owns the visual world
      * (ground, fog, lighting, manor) itself, so the generic engine
      * Lighting default is not wired in here — the active scene is
@@ -73,6 +82,7 @@ export class GameManager {
       camera: this.camera.instance,
       renderer: this.renderer.instance,
       assetManager: this.assetManager,
+      spawnManager: this.spawnManager,
     });
 
     /** @type {InputManager} */
@@ -96,14 +106,6 @@ export class GameManager {
      * @type {CollisionManager}
      */
     this.collisionManager = new CollisionManager();
-
-    /**
-     * Owns named player spawn locations for the engine. No spawn
-     * points are registered yet — this is only the permanent
-     * subsystem wiring.
-     * @type {SpawnManager}
-     */
-    this.spawnManager = new SpawnManager();
   }
 
   /**
