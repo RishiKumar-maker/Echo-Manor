@@ -57,6 +57,22 @@ const MANOR_MODEL_ID = 'manor';
 /** Target height (world units) the loaded manor model gets scaled to. */
 const MANOR_TARGET_HEIGHT = 40;
 
+/** SpawnManager id for the player's initial spawn point. */
+const ARRIVAL_SPAWN_ID = 'arrival';
+
+/**
+ * How far in front of the manor's entrance (world units, beyond its
+ * own front-wall bound) the arrival spawn sits — far enough to be
+ * clearly outside on the approach path, not right against the wall.
+ */
+const ARRIVAL_SPAWN_FRONT_CLEARANCE = 10;
+
+/**
+ * How far above the manor's own ground level the arrival spawn sits,
+ * so the player doesn't spawn exactly at (or inside) ground geometry.
+ */
+const ARRIVAL_SPAWN_HEIGHT_OFFSET = 0.5;
+
 /**
  * BootScene owns only the first visible world: fog, moonlight,
  * ambient light, and the manor (a loaded model if AssetManager has
@@ -66,6 +82,9 @@ const MANOR_TARGET_HEIGHT = 40;
  * does no asset loading of its own — every asset request goes
  * through the AssetManager passed in, which is the single source of
  * loading, caching, and manifest resolution for the whole project.
+ * If a SpawnManager is provided, BootScene also registers the
+ * player's initial "arrival" spawn point once the manor's final
+ * position is known — it does not move the camera or player itself.
  *
  * Extends BaseScene and overrides initialize() and dispose(); it has
  * no per-frame behavior, so update() is left as BaseScene's no-op.
@@ -77,14 +96,16 @@ export class BootScene extends BaseScene {
    * @param {THREE.Camera} deps.camera - Camera to frame on the manor.
    * @param {THREE.WebGLRenderer} deps.renderer - Renderer, checked for existing shadow support.
    * @param {import('../../managers/AssetManager.js').AssetManager} deps.assetManager - Sole source of asset loading; required.
+   * @param {import('../../managers/SpawnManager.js').SpawnManager} [deps.spawnManager] - Optional; if provided, the "arrival" spawn point is registered with it once the manor is positioned.
    */
-  constructor({ scene, camera, renderer, assetManager } = {}) {
+  constructor({ scene, camera, renderer, assetManager, spawnManager } = {}) {
     super();
 
     this.scene = scene;
     this.camera = camera;
     this.renderer = renderer;
     this.assetManager = assetManager;
+    this.spawnManager = spawnManager;
 
     /** @type {THREE.DirectionalLight|null} */
     this.moonlight = null;
@@ -230,6 +251,40 @@ export class BootScene extends BaseScene {
     this._applyShadows(this.manor);
 
     this.scene.add(this.manor);
+
+    this._registerArrivalSpawn();
+  }
+
+  /**
+   * Registers the "arrival" spawn point via SpawnManager, placed
+   * just outside the manor's entrance on the front approach path and
+   * facing it. This runs here, once, right after the manor (whether
+   * the real model or the placeholder) has its final position and
+   * scale — computing the spawn from the manor's actual bounding box
+   * at this moment means it stays correct even if the manor's
+   * position, scale, or geometry changes later, instead of drifting
+   * out of sync the way a hardcoded world-space guess would.
+   * @private
+   */
+  _registerArrivalSpawn() {
+    if (!this.spawnManager) return;
+
+    this.manor.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(this.manor);
+
+    const position = new THREE.Vector3(
+      (bounds.min.x + bounds.max.x) / 2,
+      bounds.min.y + ARRIVAL_SPAWN_HEIGHT_OFFSET,
+      bounds.max.z + ARRIVAL_SPAWN_FRONT_CLEARANCE
+    );
+
+    // No yaw needed: FirstPersonController treats an unrotated
+    // forward direction as -Z, and the manor's front sits at a
+    // smaller Z than this spawn — so facing "straight ahead" from
+    // here already faces the entrance.
+    const rotation = new THREE.Euler(0, 0, 0);
+
+    this.spawnManager.registerSpawn(ARRIVAL_SPAWN_ID, position, rotation);
   }
 
   /**
@@ -358,4 +413,4 @@ export class BootScene extends BaseScene {
       }
     });
   }
-}
+}w
