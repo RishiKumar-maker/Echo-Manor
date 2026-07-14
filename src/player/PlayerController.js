@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/** Default spawn position for the local player, in world units. */
+/** Default spawn position fo r the local player, in world units. */
 const DEFAULT_POSITION = { x: 0, y: 0, z: 0 };
 
 /** Default orientation for the local player, in radians. */
