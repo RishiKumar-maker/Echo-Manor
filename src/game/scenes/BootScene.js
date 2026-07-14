@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from './BaseScene.js';
- 
+
 /**
  * Fog color and density: subtle blue-gray, suited to a night scene.
  * Density kept low enough that the manor stays clearly readable at
@@ -413,4 +413,4 @@ export class BootScene extends BaseScene {
       }
     });
   }
-}w
+}
