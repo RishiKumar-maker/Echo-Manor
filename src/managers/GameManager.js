@@ -119,6 +119,10 @@ export class GameManager {
     await this.assetManager.initialize();
     await this.activeScene.initialize();
 
+    // TEMPORARY DEBUG — remove once spawn registration is confirmed.
+    const spawn = this.spawnManager.getSpawn('arrival');
+    console.log('[Spawn]', spawn);
+
     this.inputManager.initialize();
     this.firstPersonController.initialize();
     this.collisionManager.initialize();
