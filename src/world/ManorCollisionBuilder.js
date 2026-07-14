@@ -5,7 +5,7 @@ const WALL_THICKNESS = 1;
 
 /**
  * Height of each exterior wall collider, in world units, measured up
- * from the manor's own ground level. Deliberately shorter than the
+ * from the manor's own ground leve l. Deliberately shorter than the
  * manor's full height — tall enough to block the player, no need to
  * reach the roofline for a walking collider.
  */
