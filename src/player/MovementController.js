@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-/** Walking movement speed, in world units per second. */
+/** Walking movement speed, in  world units per second. */
 const WALK_SPEED = 3;
 
 /** Sprinting movement speed, in world units per second. */
