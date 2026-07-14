@@ -24,12 +24,19 @@ const MOVEMENT_KEYS = {
 /** DOM event used to request Pointer Lock when the canvas is clicked. */
 const CLICK_EVENT = 'click';
 
+/** SpawnManager id for the player's initial spawn point. */
+const ARRIVAL_SPAWN_ID = 'arrival';
+
 /**
  * The first playable first-person controller: lets the player walk
  * around BootScene with WASD (with sprint) and look around with the
  * mouse while Pointer Lock is active. It manipulates the existing
  * camera directly — no new camera is created, and nothing about the
  * engine's existing camera setup is touched otherwise.
+ *
+ * On initialize(), if SpawnManager has an "arrival" spawn point
+ * registered, the camera is placed there; otherwise it's left at
+ * whatever position/rotation the active scene already set up.
  *
  * Movement only: no collision, gravity, jumping, interaction, or
  * networking. Follows the same initialize()/update(delta)/dispose()
@@ -40,8 +47,9 @@ export class FirstPersonController {
    * @param {THREE.PerspectiveCamera} camera - The existing camera to move and look around with.
    * @param {import('../input/InputManager.js').InputManager} inputManager - Source of keyboard/mouse/pointer-lock state.
    * @param {HTMLElement} domElement - The canvas element clicked to request Pointer Lock.
+   * @param {import('../managers/SpawnManager.js').SpawnManager} [spawnManager] - Optional; if it has an "arrival" spawn registered, the camera starts there instead of its default startup position.
    */
-  constructor(camera, inputManager, domElement) {
+  constructor(camera, inputManager, domElement, spawnManager) {
     /** @private */
     this._camera = camera;
 
@@ -50,6 +58,9 @@ export class FirstPersonController {
 
     /** @private */
     this._domElement = domElement;
+
+    /** @private */
+    this._spawnManager = spawnManager;
 
     /**
      * Current look angles, in radians. Seeded from the camera's
@@ -91,16 +102,49 @@ export class FirstPersonController {
 
   /**
    * Sets the camera's rotation order for FPS-style look (yaw applied
-   * before pitch, avoiding roll drift), seeds yaw/pitch from the
-   * camera's current orientation, and starts listening for clicks on
-   * the canvas to engage Pointer Lock.
+   * before pitch, avoiding roll drift), places the camera at the
+   * registered "arrival" spawn point if one exists (otherwise leaves
+   * it at whatever the active scene already set up), seeds yaw/pitch
+   * from the camera's resulting orientation, and starts listening
+   * for clicks on the canvas to engage Pointer Lock.
    */
   initialize() {
     this._camera.rotation.order = 'YXZ';
+
+    this._applyArrivalSpawn();
+
     this._yaw = this._camera.rotation.y;
     this._pitch = this._camera.rotation.x;
 
     this._domElement.addEventListener(CLICK_EVENT, this._onClick);
+  }
+
+  /**
+   * Places the camera at the registered "arrival" spawn point, if
+   * SpawnManager has one. If not, this is a no-op — the camera stays
+   * exactly where the active scene already put it (BootScene's
+   * establishing shot) — and a warning is logged so a missing spawn
+   * is visible rather than silently swallowed.
+   *
+   * Rotation is applied via rotation.set(x, y, z) without a 4th
+   * (order) argument, deliberately — that preserves the 'YXZ' order
+   * just set above. Using rotation.copy(spawn.rotation) instead would
+   * overwrite the order back to the spawn Euler's own default ('XYZ'),
+   * silently breaking the yaw/pitch composition mouse look depends on.
+   * @private
+   */
+  _applyArrivalSpawn() {
+    const spawn = this._spawnManager?.getSpawn(ARRIVAL_SPAWN_ID);
+
+    if (!spawn) {
+      console.warn(
+        `FirstPersonController: no "${ARRIVAL_SPAWN_ID}" spawn registered; using the camera's current startup position/rotation instead.`
+      );
+      return;
+    }
+
+    this._camera.position.copy(spawn.position);
+    this._camera.rotation.set(spawn.rotation.x, spawn.rotation.y, spawn.rotation.z);
   }
 
   /**
