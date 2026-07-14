@@ -4,7 +4,7 @@ import { Renderer } from '../engine/Renderer.js';
 import { Camera } from '../engine/Camera.js';
 import { GameLoop } from '../engine/GameLoop.js';
 import { BootScene } from '../game/scenes/BootScene.js';
-import { InputManager } from '../input/InputManager.js';
+import { InputManager } from './InputManager.js';
 import { FirstPersonController } from '../player/FirstPersonController.js';
 import { CollisionManager } from '../world/CollisionManager.js';
 import { SpawnManager } from './SpawnManager.js';
