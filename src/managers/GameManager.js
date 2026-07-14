@@ -90,13 +90,16 @@ export class GameManager {
 
     /**
      * The first playable movement: WASD + sprint + pointer-lock
-     * mouse look, applied directly to the existing camera.
+     * mouse look, applied directly to the existing camera. Places
+     * the camera at the registered "arrival" spawn on initialize()
+     * if one exists.
      * @type {FirstPersonController}
      */
     this.firstPersonController = new FirstPersonController(
       this.camera.instance,
       this.inputManager,
-      this.renderer.domElement
+      this.renderer.domElement,
+      this.spawnManager
     );
 
     /**
