@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 /**
- * Owns the transform hiera rchy for the player's viewpoint: a pivot
+ * Owns the transform hierarchy for the player's viewpoint: a pivot
  * Object3D (the rig) with the game's existing PerspectiveCamera
  * attached as its child. This establishes the attachment point that
  * future first-person systems (mouse look, head-bob, camera shake,
