@@ -2,6 +2,7 @@
  * DOM event names InputManager listens for, named here so none of
  * them appear as bare string literals in the handler-registration code.
  */
+
 const DOM_EVENTS = {
   KEY_DOWN: 'keydown',
   KEY_UP: 'keyup',
