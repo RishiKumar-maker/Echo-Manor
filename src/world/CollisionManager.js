@@ -5,7 +5,7 @@ import * as THREE from 'three';
  * sphere-vs-box intersection queries. This is not a physics engine —
  * there are no forces, no collision resolution, and no continuous
  * detection over time. It only owns a set of THREE.Box3 colliders
- * and answers a single query: does this sphere intersect any of them.
+ * and answers a single query:  does this sphere intersect any of them.
  *
  * CollisionManager knows nothing about BootScene, GameManager,
  * PlayerController, or any other system — it is purely storage and
