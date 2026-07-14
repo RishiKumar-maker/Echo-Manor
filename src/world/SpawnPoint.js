@@ -4,7 +4,7 @@ import * as THREE from 'three';
  * Stores a single spawn location — a position and rotation — so
  * spawn data has one reusable, dedicated home instead of being
  * hardcoded inline inside BootScene or FirstPersonController.
- *
+ * 
  * SpawnPoint never exposes its internal Vector3/Euler by reference.
  * The constructor copies its inputs rather than storing them, and
  * every accessor returns a new, independent clone — so neither the
