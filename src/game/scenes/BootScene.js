@@ -67,7 +67,7 @@ const ARRIVAL_SPAWN_ID = 'arrival';
  * once one exists — these are placeholder coordinates, not measured
  * against the manor's actual geometry.
  */
-const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(0, 1, 20);
+const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(0, 12, 0 );
 const ARRIVAL_SPAWN_ROTATION = new THREE.Euler(0, 0, 0);
 
 // TEMPORARY DEVELOPMENT TOOL — remove this whole block once the
