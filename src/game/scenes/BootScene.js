@@ -69,6 +69,15 @@ const ARRIVAL_SPAWN_ID = 'arrival';
 const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(0, 1, 20);
 const ARRIVAL_SPAWN_ROTATION = new THREE.Euler(0, 0, 0);
 
+// TEMPORARY DEVELOPMENT TOOL — remove this whole block once the
+// correct ARRIVAL_SPAWN_POSITION has been found visually.
+/** Visible size of the dev spawn marker's axes, in world units. */
+const DEV_SPAWN_MARKER_SIZE = 2;
+/** Arrow-key step size on X/Z, in world units. */
+const DEV_SPAWN_STEP_XZ = 1;
+/** PageUp/PageDown step size on Y, in world units. */
+const DEV_SPAWN_STEP_Y = 0.5;
+
 /**
  * BootScene owns only the first visible world: fog, moonlight,
  * ambient light, and the manor (a loaded model if AssetManager has
@@ -126,6 +135,12 @@ export class BootScene extends BaseScene {
 
     /** @private */
     this._disposed = false;
+
+    // TEMPORARY DEVELOPMENT TOOL
+    /** @private @type {THREE.AxesHelper|null} */
+    this._devSpawnMarker = null;
+    /** @private */
+    this._onDevSpawnKeyDown = this._onDevSpawnKeyDown.bind(this);
   }
 
   /**
@@ -141,6 +156,10 @@ export class BootScene extends BaseScene {
     this._createLighting();
     await this._createManor();
     this._frameCamera();
+
+    // TEMPORARY DEVELOPMENT TOOL
+    this._createDevSpawnMarker();
+    window.addEventListener('keydown', this._onDevSpawnKeyDown);
   }
 
   /**
@@ -151,6 +170,15 @@ export class BootScene extends BaseScene {
    */
   dispose() {
     this._disposed = true;
+
+    // TEMPORARY DEVELOPMENT TOOL
+    window.removeEventListener('keydown', this._onDevSpawnKeyDown);
+    if (this._devSpawnMarker) {
+      this.scene.remove(this._devSpawnMarker);
+      this._devSpawnMarker.geometry?.dispose();
+      this._devSpawnMarker.material?.dispose();
+      this._devSpawnMarker = null;
+    }
 
     if (this.manor) {
       this.scene.remove(this.manor);
@@ -268,6 +296,63 @@ export class BootScene extends BaseScene {
       ARRIVAL_SPAWN_POSITION,
       ARRIVAL_SPAWN_ROTATION
     );
+  }
+
+  // TEMPORARY DEVELOPMENT TOOL
+  /**
+   * Creates a small visible AxesHelper at ARRIVAL_SPAWN_POSITION so
+   * the spawn location can be seen and adjusted visually.
+   * @private
+   */
+  _createDevSpawnMarker() {
+    this._devSpawnMarker = new THREE.AxesHelper(DEV_SPAWN_MARKER_SIZE);
+    this._devSpawnMarker.position.copy(ARRIVAL_SPAWN_POSITION);
+    this.scene.add(this._devSpawnMarker);
+  }
+
+  // TEMPORARY DEVELOPMENT TOOL
+  /**
+   * Arrow keys move the marker ±1 on X/Z, PageUp/PageDown move it
+   * ±0.5 on Y, and P prints the current position as a ready-to-paste
+   * ARRIVAL_SPAWN_POSITION declaration. Mutates the shared
+   * ARRIVAL_SPAWN_POSITION Vector3 directly so the marker and the
+   * printed values always agree.
+   * @param {KeyboardEvent} event
+   * @private
+   */
+  _onDevSpawnKeyDown(event) {
+    if (!this._devSpawnMarker) return;
+
+    switch (event.code) {
+      case 'ArrowLeft':
+        ARRIVAL_SPAWN_POSITION.x -= DEV_SPAWN_STEP_XZ;
+        break;
+      case 'ArrowRight':
+        ARRIVAL_SPAWN_POSITION.x += DEV_SPAWN_STEP_XZ;
+        break;
+      case 'ArrowUp':
+        ARRIVAL_SPAWN_POSITION.z -= DEV_SPAWN_STEP_XZ;
+        break;
+      case 'ArrowDown':
+        ARRIVAL_SPAWN_POSITION.z += DEV_SPAWN_STEP_XZ;
+        break;
+      case 'PageUp':
+        ARRIVAL_SPAWN_POSITION.y += DEV_SPAWN_STEP_Y;
+        break;
+      case 'PageDown':
+        ARRIVAL_SPAWN_POSITION.y -= DEV_SPAWN_STEP_Y;
+        break;
+      case 'KeyP':
+        console.log(
+          `const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(${ARRIVAL_SPAWN_POSITION.x}, ${ARRIVAL_SPAWN_POSITION.y}, ${ARRIVAL_SPAWN_POSITION.z});`
+        );
+        return;
+      default:
+        return;
+    }
+
+    event.preventDefault();
+    this._devSpawnMarker.position.copy(ARRIVAL_SPAWN_POSITION);
   }
 
   /**
