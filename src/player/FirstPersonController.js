@@ -27,6 +27,9 @@ const CLICK_EVENT = 'click';
 /** SpawnManager id for the player's initial spawn point. */
 const ARRIVAL_SPAWN_ID = 'arrival';
 
+/** Radius of the player's collision sphere, in world units. */
+const PLAYER_COLLIDER_RADIUS = 0.5;
+
 /**
  * The first playable first-person controller: lets the player walk
  * around BootScene with WASD (with sprint) and look around with the
@@ -38,9 +41,16 @@ const ARRIVAL_SPAWN_ID = 'arrival';
  * registered, the camera is placed there; otherwise it's left at
  * whatever position/rotation the active scene already set up.
  *
- * Movement only: no collision, gravity, jumping, interaction, or
- * networking. Follows the same initialize()/update(delta)/dispose()
- * lifecycle used elsewhere in the engine.
+ * If a CollisionManager is provided, movement is tested against it
+ * one axis at a time (X, then Z) before being applied — this is what
+ * lets the player slide along a wall instead of getting stuck when
+ * moving diagonally into it. No physics engine, no raycasting
+ * against the model: just a sphere-vs-box query per axis, per frame.
+ *
+ * Movement only: no collision resolution beyond blocking, no
+ * gravity, jumping, interaction, or networking. Follows the same
+ * initialize()/update(delta)/dispose() lifecycle used elsewhere in
+ * the engine.
  */
 export class FirstPersonController {
   /**
@@ -48,8 +58,9 @@ export class FirstPersonController {
    * @param {import('../input/InputManager.js').InputManager} inputManager - Source of keyboard/mouse/pointer-lock state.
    * @param {HTMLElement} domElement - The canvas element clicked to request Pointer Lock.
    * @param {import('../managers/SpawnManager.js').SpawnManager} [spawnManager] - Optional; if it has an "arrival" spawn registered, the camera starts there instead of its default startup position.
+   * @param {import('../world/CollisionManager.js').CollisionManager} [collisionManager] - Optional; if provided, movement is blocked per-axis against its registered colliders.
    */
-  constructor(camera, inputManager, domElement, spawnManager) {
+  constructor(camera, inputManager, domElement, spawnManager, collisionManager) {
     /** @private */
     this._camera = camera;
 
@@ -61,6 +72,9 @@ export class FirstPersonController {
 
     /** @private */
     this._spawnManager = spawnManager;
+
+    /** @private */
+    this._collisionManager = collisionManager;
 
     /**
      * Current look angles, in radians. Seeded from the camera's
@@ -95,6 +109,13 @@ export class FirstPersonController {
      * @private @type {THREE.Vector3}
      */
     this._upAxis = new THREE.Vector3(0, 1, 0);
+
+    /**
+     * Scratch vector for per-axis collision testing, reused every
+     * frame instead of being reallocated.
+     * @private @type {THREE.Vector3}
+     */
+    this._collisionTestCenter = new THREE.Vector3();
 
     /** @private */
     this._onClick = this._onClick.bind(this);
@@ -211,7 +232,37 @@ export class FirstPersonController {
       .applyAxisAngle(this._upAxis, this._yaw)
       .multiplyScalar(speed * delta);
 
-    this._camera.position.add(this._movement);
+    this._moveAxis('x');
+    this._moveAxis('z');
+  }
+
+  /**
+   * Attempts to move the camera along a single horizontal axis by
+   * this frame's computed displacement, testing that axis
+   * independently against CollisionManager before applying it. If no
+   * CollisionManager was provided, movement is applied unconditionally.
+   *
+   * Testing X and Z independently (rather than testing the combined
+   * diagonal displacement as one move) is what makes wall sliding
+   * work: moving diagonally into a wall cancels only the axis that's
+   * actually blocked, while the other axis — parallel to the wall —
+   * still succeeds, so the player slides along the surface instead
+   * of stopping dead or getting stuck.
+   * @param {'x'|'z'} axis
+   * @private
+   */
+  _moveAxis(axis) {
+    this._collisionTestCenter.copy(this._camera.position);
+    this._collisionTestCenter[axis] += this._movement[axis];
+
+    const blocked = this._collisionManager?.intersectsSphere(
+      this._collisionTestCenter,
+      PLAYER_COLLIDER_RADIUS
+    );
+
+    if (!blocked) {
+      this._camera.position[axis] = this._collisionTestCenter[axis];
+    }
   }
 
   /**
