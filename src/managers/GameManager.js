@@ -71,6 +71,16 @@ export class GameManager {
     this.spawnManager = new SpawnManager();
 
     /**
+     * Owns collision volumes and answers intersection queries for
+     * the engine. Created before BootScene and FirstPersonController
+     * so both can receive it as a constructor dependency — BootScene
+     * registers the manor's wall colliders once it's positioned, and
+     * FirstPersonController queries them each frame to block movement.
+     * @type {CollisionManager}
+     */
+    this.collisionManager = new CollisionManager();
+
+    /**
      * The single active scene. BootScene owns the visual world
      * (ground, fog, lighting, manor) itself, so the generic engine
      * Lighting default is not wired in here — the active scene is
@@ -83,6 +93,7 @@ export class GameManager {
       renderer: this.renderer.instance,
       assetManager: this.assetManager,
       spawnManager: this.spawnManager,
+      collisionManager: this.collisionManager,
     });
 
     /** @type {InputManager} */
@@ -92,23 +103,17 @@ export class GameManager {
      * The first playable movement: WASD + sprint + pointer-lock
      * mouse look, applied directly to the existing camera. Places
      * the camera at the registered "arrival" spawn on initialize()
-     * if one exists.
+     * if one exists, and blocks per-axis movement against
+     * CollisionManager's registered colliders.
      * @type {FirstPersonController}
      */
     this.firstPersonController = new FirstPersonController(
       this.camera.instance,
       this.inputManager,
       this.renderer.domElement,
-      this.spawnManager
+      this.spawnManager,
+      this.collisionManager
     );
-
-    /**
-     * Owns collision volumes and answers intersection queries for
-     * the engine. No boxes are registered and no queries are made
-     * yet — this is only the permanent subsystem wiring.
-     * @type {CollisionManager}
-     */
-    this.collisionManager = new CollisionManager();
   }
 
   /**
