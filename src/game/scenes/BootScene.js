@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BaseScene } from './BaseScene.js';
+import { ManorCollisionBuilder } from '../../world/ManorCollisionBuilder.js';
 
 /**
  * Fog color and density: subtle blue-gray, suited to a night scene.
@@ -66,7 +67,7 @@ const ARRIVAL_SPAWN_ID = 'arrival';
  * once one exists — these are placeholder coordinates, not measured
  * against the manor's actual geometry.
  */
-const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(0, 12, 0);
+const ARRIVAL_SPAWN_POSITION = new THREE.Vector3(0, 1, 20);
 const ARRIVAL_SPAWN_ROTATION = new THREE.Euler(0, 0, 0);
 
 // TEMPORARY DEVELOPMENT TOOL — remove this whole block once the
@@ -90,6 +91,10 @@ const DEV_SPAWN_STEP_Y = 0.5;
  * If a SpawnManager is provided, BootScene also registers the
  * player's initial "arrival" spawn point once the manor's final
  * position is known — it does not move the camera or player itself.
+ * If a CollisionManager is provided, BootScene also builds and
+ * registers the manor's exterior wall colliders via
+ * ManorCollisionBuilder at the same point — it does not perform any
+ * collision queries itself.
  *
  * Extends BaseScene and overrides initialize() and dispose(); it has
  * no per-frame behavior, so update() is left as BaseScene's no-op.
@@ -102,8 +107,9 @@ export class BootScene extends BaseScene {
    * @param {THREE.WebGLRenderer} deps.renderer - Renderer, checked for existing shadow support.
    * @param {import('../../managers/AssetManager.js').AssetManager} deps.assetManager - Sole source of asset loading; required.
    * @param {import('../../managers/SpawnManager.js').SpawnManager} [deps.spawnManager] - Optional; if provided, the "arrival" spawn point is registered with it once the manor is positioned.
+   * @param {import('../../world/CollisionManager.js').CollisionManager} [deps.collisionManager] - Optional; if provided, the manor's exterior wall colliders are built and registered with it once the manor is positioned.
    */
-  constructor({ scene, camera, renderer, assetManager, spawnManager } = {}) {
+  constructor({ scene, camera, renderer, assetManager, spawnManager, collisionManager } = {}) {
     super();
 
     this.scene = scene;
@@ -111,6 +117,7 @@ export class BootScene extends BaseScene {
     this.renderer = renderer;
     this.assetManager = assetManager;
     this.spawnManager = spawnManager;
+    this.collisionManager = collisionManager;
 
     /** @type {THREE.DirectionalLight|null} */
     this.moonlight = null;
@@ -135,6 +142,9 @@ export class BootScene extends BaseScene {
 
     /** @private */
     this._disposed = false;
+
+    /** @private @type {ManorCollisionBuilder|null} */
+    this._manorCollisionBuilder = null;
 
     // TEMPORARY DEVELOPMENT TOOL
     /** @private @type {THREE.AxesHelper|null} */
@@ -178,6 +188,11 @@ export class BootScene extends BaseScene {
       this._devSpawnMarker.geometry?.dispose();
       this._devSpawnMarker.material?.dispose();
       this._devSpawnMarker = null;
+    }
+
+    if (this._manorCollisionBuilder) {
+      this._manorCollisionBuilder.dispose();
+      this._manorCollisionBuilder = null;
     }
 
     if (this.manor) {
@@ -277,6 +292,7 @@ export class BootScene extends BaseScene {
     this.scene.add(this.manor);
 
     this._registerArrivalSpawn();
+    this._buildManorCollision();
   }
 
   /**
@@ -296,6 +312,21 @@ export class BootScene extends BaseScene {
       ARRIVAL_SPAWN_POSITION,
       ARRIVAL_SPAWN_ROTATION
     );
+  }
+
+  /**
+   * Builds the manor's exterior wall colliders via ManorCollisionBuilder
+   * and registers them with CollisionManager, once — right after the
+   * manor (model or placeholder) has its final position and scale, the
+   * same timing as the arrival spawn. No-op if no CollisionManager was
+   * provided.
+   * @private
+   */
+  _buildManorCollision() {
+    if (!this.collisionManager) return;
+
+    this._manorCollisionBuilder = new ManorCollisionBuilder();
+    this._manorCollisionBuilder.initialize(this.collisionManager, this.manor);
   }
 
   // TEMPORARY DEVELOPMENT TOOL
